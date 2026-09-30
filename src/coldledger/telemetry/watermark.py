@@ -15,6 +15,6 @@ class Buffer:
         self.pending[r.device]=[x for x in self.pending[r.device] if x not in ready];return out
     def flush(self,device):
         rows=sorted(self.pending[device],key=lambda x:(x.event_time,x.sequence));self.pending[device]=[];out=[]
-        for x in rows:
+        for x in rows[1:]:
             if x.sequence not in self.emitted:out.append(x);self.emitted.add(x.sequence)
         return out
