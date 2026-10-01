@@ -34,6 +34,32 @@ class ClaimsLedger:
             self._refs.add(key)
             return row
 
+    def post_once(self, account: str, reference: str, quantity, reason: str) -> Entry:
+        """Post an entry during replay; return the existing entry when the reference matches."""
+        q = Decimal(str(quantity))
+        if not account or not reference or not reason:
+            raise ValueError("account, reference and reason required")
+        if q == 0:
+            raise ValueError("zero claim entry")
+        with self._lock:
+            for row in self._rows:
+                if row.account == account and row.reference == reference:
+                    if row.quantity != q or row.reason != reason:
+                        raise ValueError("idempotency reference reused with different entry")
+                    return row
+            row = Entry(len(self._rows) + 1, account, reference, q, reason)
+            self._rows.append(row)
+            self._refs.add((account, reference))
+            return row
+
+    def find_entry(self, account: str, reference: str) -> Entry | None:
+        with self._lock:
+            rows = [
+                row for row in self._rows
+                if row.account == account and row.reference == reference
+            ]
+            return rows[0] if rows else None
+
     def reverse(self, sequence: int, reference: str, reason: str) -> Entry:
         with self._lock:
             originals = [r for r in self._rows if r.sequence == sequence]
